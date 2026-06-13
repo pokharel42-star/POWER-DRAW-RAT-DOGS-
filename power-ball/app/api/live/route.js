@@ -1,6 +1,6 @@
 import { fallbackPoints, teamCodeMap } from '@/data/tournament';
 
-const API_BASE = process.env.WORLD_CUP_API_BASE || 'https://worldcupapi.com/api';
+const API_BASE = process.env.WORLD_CUP_API_BASE || 'https://api.football-data.org/v4';
 const API_KEY = process.env.WORLD_CUP_API_KEY;
 
 function normalize(name) {
@@ -41,17 +41,34 @@ export async function GET() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/matches?status=live,completed`, {
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        Accept: 'application/json'
-      },
-      next: { revalidate: 15 }
-    });
+    const [liveRes, finishedRes] = await Promise.all([
+      fetch(`${API_BASE}/matches?status=LIVE`, {
+        headers: {
+          'X-Auth-Token': API_KEY,
+          Accept: 'application/json'
+        },
+        next: { revalidate: 15 }
+      }),
+      fetch(`${API_BASE}/matches?status=FINISHED`, {
+        headers: {
+          'X-Auth-Token': API_KEY,
+          Accept: 'application/json'
+        },
+        next: { revalidate: 15 }
+      })
+    ]);
 
-    if (!response.ok) throw new Error(`API request failed: ${response.status}`);
-    const data = await response.json();
-    const matches = data.matches || data.data || [];
+    if (!liveRes.ok) throw new Error(`Live API request failed: ${liveRes.status}`);
+    if (!finishedRes.ok) throw new Error(`Finished API request failed: ${finishedRes.status}`);
+
+    const liveData = await liveRes.json();
+    const finishedData = await finishedRes.json();
+
+    const matches = [
+      ...(liveData.matches || []),
+      ...(finishedData.matches || [])
+    ];
+
     const mapped = mapApiScores(matches);
 
     return Response.json({
