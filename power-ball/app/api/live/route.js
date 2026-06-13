@@ -2,6 +2,7 @@ import { fallbackPoints, teamCodeMap } from '@/data/tournament';
 
 const API_BASE = process.env.WORLD_CUP_API_BASE || 'https://api.football-data.org/v4';
 const API_KEY = process.env.WORLD_CUP_API_KEY;
+const COMPETITION_CODE = 'WC';
 
 function normalize(name) {
   return String(name || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -69,7 +70,7 @@ export async function GET() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/matches`, {
+    const response = await fetch(`${API_BASE}/competitions/${COMPETITION_CODE}/matches`, {
       headers: {
         'X-Auth-Token': API_KEY,
         Accept: 'application/json'
@@ -88,6 +89,7 @@ export async function GET() {
     return Response.json({
       mode: 'live',
       updatedAt: new Date().toISOString(),
+      competition: COMPETITION_CODE,
       ...mapped
     });
   } catch (error) {
