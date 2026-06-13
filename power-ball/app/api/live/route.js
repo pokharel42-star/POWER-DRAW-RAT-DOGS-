@@ -69,34 +69,20 @@ export async function GET() {
   }
 
   try {
-    const [liveRes, finishedRes] = await Promise.all([
-      fetch(`${API_BASE}/matches?status=LIVE`, {
-        headers: {
-          'X-Auth-Token': API_KEY,
-          Accept: 'application/json'
-        },
-        next: { revalidate: 15 }
-      }),
-      fetch(`${API_BASE}/matches?status=FINISHED`, {
-        headers: {
-          'X-Auth-Token': API_KEY,
-          Accept: 'application/json'
-        },
-        next: { revalidate: 15 }
-      })
-    ]);
+    const response = await fetch(`${API_BASE}/matches`, {
+      headers: {
+        'X-Auth-Token': API_KEY,
+        Accept: 'application/json'
+      },
+      next: { revalidate: 15 }
+    });
 
-    if (!liveRes.ok) throw new Error(`Live API request failed: ${liveRes.status}`);
-    if (!finishedRes.ok) throw new Error(`Finished API request failed: ${finishedRes.status}`);
+    if (!response.ok) {
+      throw new Error(`Live API request failed: ${response.status}`);
+    }
 
-    const liveData = await liveRes.json();
-    const finishedData = await finishedRes.json();
-
-    const matches = [
-      ...(liveData.matches || []),
-      ...(finishedData.matches || [])
-    ];
-
+    const data = await response.json();
+    const matches = data.matches || [];
     const mapped = mapApiScores(matches);
 
     return Response.json({
