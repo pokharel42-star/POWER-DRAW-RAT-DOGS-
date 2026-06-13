@@ -1,59 +1,41 @@
 import { fallbackPoints, teamCodeMap } from '@/data/tournament';
 
-const API_BASE = process.env.WORLD_CUP_API_BASE || 'https://api.football-data.org/v4';
+const API_BASE = process.env.WORLD_CUP_API_BASE || 'https://v3.football.api-sports.io';
 const API_KEY = process.env.WORLD_CUP_API_KEY;
-const COMPETITION_CODE = 'WC';
 
 function normalize(name) {
   return String(name || '').toLowerCase().replace(/[^a-z]/g, '');
 }
 
-function mapApiScores(matches) {
+function mapApiScores(fixtures) {
   const result = { ...fallbackPoints };
   const liveMatches = [];
 
-  for (const match of matches || []) {
-    const homeName =
-      match?.homeTeam?.name ||
-      match?.home_team?.name ||
-      match?.home_team ||
-      match?.home ||
-      '';
+  for (const item of fixtures || []) {
+    const match = item?.fixture || {};
+    const teams = item?.teams || {};
+    const goals = item?.goals || {};
 
-    const awayName =
-      match?.awayTeam?.name ||
-      match?.away_team?.name ||
-      match?.away_team ||
-      match?.away ||
-      '';
-
-    const homeScore = Number(
-      match?.score?.fullTime?.homeTeam ??
-      match?.score?.fullTime?.home ??
-      match?.goals?.home ??
-      match?.score?.home ??
-      match?.home_score ??
-      0
-    );
-
-    const awayScore = Number(
-      match?.score?.fullTime?.awayTeam ??
-      match?.score?.fullTime?.away ??
-      match?.goals?.away ??
-      match?.score?.away ??
-      match?.away_score ??
-      0
-    );
-
-    const status = match?.status || match?.state || 'scheduled';
-    const minute = match?.minute || match?.clock || null;
+    const homeName = teams?.home?.name || '';
+    const awayName = teams?.away?.name || '';
+    const homeScore = Number(goals?.home ?? 0);
+    const awayScore = Number(goals?.away ?? 0);
+    const status = match?.status?.short || match?.status?.long || 'scheduled';
+    const minute = match?.status?.elapsed ?? null;
 
     for (const teamName of Object.keys(teamCodeMap)) {
       if (normalize(homeName) === normalize(teamName)) result[teamName] = homeScore;
       if (normalize(awayName) === normalize(teamName)) result[teamName] = awayScore;
     }
 
-    liveMatches.push({ homeName, awayName, homeScore, awayScore, status, minute });
+    liveMatches.push({
+      homeName,
+      awayName,
+      homeScore,
+      awayScore,
+      status,
+      minute
+    });
   }
 
   return { scores: result, liveMatches };
@@ -70,9 +52,9 @@ export async function GET() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/competitions/${COMPETITION_CODE}/matches`, {
+    const response = await fetch(`${API_BASE}/fixtures?live=all`, {
       headers: {
-        'X-Auth-Token': API_KEY,
+        'x-apisports-key': API_KEY,
         Accept: 'application/json'
       },
       next: { revalidate: 15 }
@@ -83,13 +65,12 @@ export async function GET() {
     }
 
     const data = await response.json();
-    const matches = data.matches || [];
-    const mapped = mapApiScores(matches);
+    const fixtures = data.response || [];
+    const mapped = mapApiScores(fixtures);
 
     return Response.json({
       mode: 'live',
       updatedAt: new Date().toISOString(),
-      competition: COMPETITION_CODE,
       ...mapped
     });
   } catch (error) {
