@@ -4,7 +4,7 @@ const API_BASE = process.env.WORLD_CUP_API_BASE || 'https://api.football-data.or
 const API_KEY = process.env.WORLD_CUP_API_KEY;
 
 function normalize(name) {
-  return name.toLowerCase().replace(/[^a-z]/g, '');
+  return String(name || '').toLowerCase().replace(/[^a-z]/g, '');
 }
 
 function mapApiScores(matches) {
@@ -12,10 +12,38 @@ function mapApiScores(matches) {
   const liveMatches = [];
 
   for (const match of matches || []) {
-    const homeName = match?.home_team?.name || match?.homeTeam?.name || match?.home_team || match?.home || '';
-    const awayName = match?.away_team?.name || match?.awayTeam?.name || match?.away_team || match?.away || '';
-    const homeScore = Number(match?.home_score ?? match?.goals?.home ?? match?.score?.home ?? 0);
-    const awayScore = Number(match?.away_score ?? match?.goals?.away ?? match?.score?.away ?? 0);
+    const homeName =
+      match?.homeTeam?.name ||
+      match?.home_team?.name ||
+      match?.home_team ||
+      match?.home ||
+      '';
+
+    const awayName =
+      match?.awayTeam?.name ||
+      match?.away_team?.name ||
+      match?.away_team ||
+      match?.away ||
+      '';
+
+    const homeScore = Number(
+      match?.score?.fullTime?.homeTeam ??
+      match?.score?.fullTime?.home ??
+      match?.goals?.home ??
+      match?.score?.home ??
+      match?.home_score ??
+      0
+    );
+
+    const awayScore = Number(
+      match?.score?.fullTime?.awayTeam ??
+      match?.score?.fullTime?.away ??
+      match?.goals?.away ??
+      match?.score?.away ??
+      match?.away_score ??
+      0
+    );
+
     const status = match?.status || match?.state || 'scheduled';
     const minute = match?.minute || match?.clock || null;
 
@@ -79,7 +107,7 @@ export async function GET() {
   } catch (error) {
     return Response.json({
       mode: 'fallback',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown API error',
       scores: fallbackPoints,
       liveMatches: []
     }, { status: 200 });
